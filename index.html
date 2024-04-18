@@ -1,0 +1,213 @@
+<html>
+    <head>
+        <title>testorbek</title>
+    </head>
+
+    <body>
+        <div id="box" class="box">
+            
+        </div>
+    </body>
+</html>
+
+<script>
+    const data = { //данные на основе которых строятся списки
+        1: [],
+        2: [],
+        3: [],
+    }
+
+    const box = document.querySelector('#box'); // обертка для списков
+    let lists; // списки что добавляются в разметку
+    let btnMoveAll; // коллекция кнопок перемещающих все
+    let btnMoveOne; // коллекция кнопок перемещающихъ элементы по одному
+    let listItems; // элементы списков
+
+    let selectedElements = []; // выбранные элемент для переезда
+
+    function fillData(arr, val) {   //заполнить конкретный массив в data
+        for (i = 0; i < val; i++) {
+            arr.push({text: `qwerty-${random()}`})
+        }
+        sortArr(arr)
+    }    
+
+    function random() { // рандом чтобы внешне отличать элементы списка друг от друга
+        return Math.floor(Math.random() * 100)
+    }
+
+    function sortArr(arr) { // сортировка по рандомному числу в конце названия элемента
+        arr.sort((a, b) => {
+            return Number(a.text.split('-')[1]) - Number(b.text.split('-')[1])
+        })
+    }
+
+    function fillLists(arr) { //вызывает заполнялку для переданных ему номеров в коллекции
+        arr.map(num => {
+            lists[num - 1].innerHTML = `${fillList(+num)}`;
+        })
+    };
+
+    function fillList (index) { // заполнить переданный список согласно data
+        let str = '';
+        data[index].map((item, i) => {
+            str = str + `<li class='list-item' data-indexes='{"parent":${index}, "itself":${i}}'>${ item.text }</li >`
+        })
+        listItems = document.querySelectorAll('.list-item')
+        eventForListItems();
+        return str
+    }
+
+    function selectElement(e) { // записывает выбранный элемент в переменную
+        let obj = JSON.parse(e.target.dataset.indexes);
+        if(!e.target.classList.contains('selected')) {
+            selectedElements.push(obj)
+        } else {
+            let unSelectedIndex = selectedElements.findIndex((item, index) => {
+                return item.itself == obj.itself
+            })
+            selectedElements.splice(unSelectedIndex, 1)
+        }
+        
+        e.target.classList.toggle('selected')
+    }
+
+    function moveMultipleElements(e) { //функция для события на кнопки двигающие одиночные элементы
+        let routingObject = JSON.parse(e.target.dataset.indexes);        
+
+        selectedElements.map(item => {
+            let el = data[item.parent].slice(Number(item.itself), Number(item.itself + 1))
+            data[routingObject.destination].push(el[0])
+            data[routingObject.current][item.itself].toDelete = true;
+        })       
+        
+        data[routingObject.current] = deleteItems(data[routingObject.current])
+        data[routingObject.destination] = deleteFlags(data[routingObject.destination])
+        sortArr(data[routingObject.destination])
+        sortArr(data[routingObject.current])
+
+
+        selectedElements = []
+
+        fillLists([routingObject.current, routingObject.destination]);
+
+        console.log(data)
+    }    
+
+    function moveAllElements(e) { //функция для события на кнопки двигающие все элементы
+        let routingObject = JSON.parse(e.target.dataset.indexes);
+        data[routingObject.destination].push(...data[routingObject.current])
+        data[routingObject.current] = [];        
+        
+        sortArr(data[routingObject.destination])
+        sortArr(data[routingObject.current])
+
+        fillLists([routingObject.current, routingObject.destination]);  
+    }
+
+    function deleteItems(arr) { //возвращает массив без флажков toDelete
+        return arr.filter(item => item.toDelete !== true)
+    }
+
+    function deleteFlags(arr) { // удаляет поля toDelete в массиве
+        let array = [];
+
+        arr.map(item => {
+            if(item.toDelete) {
+                delete item.toDelete
+            }
+            array.push(item)
+        })
+
+        return array
+    }
+
+    function addButtons(currentIndex) { // отрисовка кнопок
+        currentIndex = +currentIndex
+
+        if (currentIndex > 2) {
+            return ``
+        } else {
+            return `
+                <div class='button-box'>
+                    <button class=MoveAll data-indexes='{"current": ${currentIndex}, "destination": ${currentIndex + 1}}'> >> </button>
+                    <button class=MoveOne data-indexes='{"current": ${currentIndex}, "destination": ${currentIndex + 1}}'> > </button>
+                    <button class=MoveAll data-indexes='{"current": ${currentIndex + 1}, "destination": ${currentIndex}}'> << </button>
+                    <button class=MoveOne data-indexes='{"current": ${currentIndex + 1}, "destination": ${currentIndex}}'> < </button>
+                </div>
+            `
+        }         
+    }
+
+    function eventForListItems() { //событие для выбора отдельных элементов, необходимо перевызывать после переотрисовки списка
+        listItems.forEach(item => {
+            item.addEventListener('click', selectElement)
+        })
+    }
+
+    Object.keys(data).map(item => { //вызвать заполнялку массивов для каждого
+        fillData(data[item], 20)        
+    })
+
+    Object.keys(data).map((item, index) => { // добавим списки и кнопки в разметку согласно их количеству в объекте data
+        box.innerHTML += `<ul class='list'></ul>`;
+        box.innerHTML += addButtons(item)
+        lists = document.querySelectorAll('.list');
+        btnMoveAll = document.querySelectorAll('.MoveAll');
+        btnMoveOne = document.querySelectorAll('.MoveOne');        
+    })
+
+    fillLists(Object.keys(data)); // заполним списки
+   
+    btnMoveAll.forEach(item => { //событие для общих кнопок
+        item.addEventListener('click', moveAllElements)
+    })
+
+    btnMoveOne.forEach(item => { //событие для одиночных кнопок
+        item.addEventListener('click', moveMultipleElements)
+    })
+</script>
+
+
+<style>
+    .box {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    ul.list {
+        list-style-type: none;
+        cursor: pointer;
+        padding: 0;
+        border: 1px solid black;
+        width: 30%;
+    }
+
+    .list-item {
+        text-align: center;
+        border: 1px solid black;
+    }
+
+    .list-item.selected {
+        background: green;
+    }
+
+    .list-item:hover {
+        background: lightblue;
+    }
+
+    .list-item.selected:hover {
+        background: red;
+    }
+
+    .button-box {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .button-box button {
+        margin: 7px 0;
+    }
+</style>
